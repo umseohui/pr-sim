@@ -2,37 +2,28 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.title("PR Jet Instability Simulator (with Viscosity)")
+st.title("PR Jet Instability Simulator")
 
-# 1. 입력 파라미터 (단위 및 범위 수정)
-# 밀도, 노즐 반경, 속도는 단순화하기 위해 상수로 고정
-density = 1000.0  # kg/m3 (Typical PR density)
-radius = 1e-4      # m (100 um nozzle radius)
+# 파라미터 입력
+viscosity_cp = st.slider("Viscosity (cP)", 1.0, 100.0, 10.0)
+surface_tension = st.slider("Surface Tension (mN/m)", 20.0, 70.0, 30.0)
 
-viscosity_cp = st.slider("Viscosity (cP)", 1.0, 100.0, 10.0) # cP -> Pa*s로 변환
-viscosity = viscosity_cp / 1000.0 # kg/(m*s)
-surface_tension = st.slider("Surface Tension (mN/m)", 20.0, 70.0, 30.0) # mN/m -> N/m로 변환
+# kR 범위 설정
+kR = np.linspace(0.01, 1.1, 100)
 
-# 2. 진짜 Rayleigh 분산 관계식 (with viscosity)
-kR = np.linspace(0, 1.1, 200) # x축 범위 (k*R)
-k = kR / radius
+# Rayleigh-Plateau 분산 관계식 (점도 감쇠항이 강력하게 적용된 모델)
+# Viscosity가 분모에 들어가서 증가할수록 성장률(omega)을 강하게 억제하도록 설정
+omega_squared = (surface_tension / 20.0) * (kR * (1 - kR**2)) / (1 + (viscosity_cp / 5.0) * kR)
 
-# 성장률 omega 제곱을 구하는 수식 (Bessel 함수 등을 포함하는 복잡한 식을 단순화)
-# Viscosity가 높으면 omega가 낮아지고, Surface tension이 높으면 omega가 높아지는 관계
-# 점도가 포함된 수식은 복잡하므로, 경향성을 보여주는 모델을 사용
-omega_squared = (surface_tension / (density * radius**3)) * (kR * (1 - kR**2)) / (1 + (viscosity * kR / (density * radius**2 * (surface_tension / density * radius)**0.5))) # 예시 모델
+# 시각화
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(kR, omega_squared, lw=3, color='#1f77b4')
+ax.set_xlabel("Dimensionless Wavenumber (kR)", fontsize=12)
+ax.set_ylabel("Growth Rate (omega^2)", fontsize=12)
+ax.set_title("Dispersion Relation Curve", fontsize=14)
+ax.grid(True, linestyle='--', alpha=0.6)
 
-# 3. 시각화
-fig, ax = plt.subplots()
-ax.plot(kR, omega_squared, label='Dispersion Relation')
-ax.set_xlabel("Dimensionless Wavenumber (kR)")
-ax.set_ylabel("Growth Rate (omega^2)")
-ax.axhline(0, color='black', lw=0.5, ls='--')
-ax.axvline(0.697, color='red', lw=1, ls='--', label='Max Instability (Theory)')
-ax.set_title(f"Viscosity: {viscosity_cp:.1f} cP, Surface Tension: {surface_tension:.1f} mN/m")
-ax.legend()
-ax.set_ylim(-10, max(omega_squared) * 1.2) # y축 범위 자동 조절
+# y축 범위 고정 (그래프 변동을 시각적으로 크게 보기 위함)
+ax.set_ylim(0, 5) 
+
 st.pyplot(fig)
-
-# 이론적 피크 지점
-st.write(f"Predicted Max Wavelength: lambda ≈ {9.01*radius*1e6:.1f} µm")
